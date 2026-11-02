@@ -70,8 +70,8 @@ def live_btn_state(lang: str = "it"):
 
 
 def model_status_init():
-    """Stati iniziali + seleziona il primo modello."""
+    """Stati iniziali + seleziona il primo modello. Non tocca stati già scope-loaded."""
     for m in MODELS:
-        if m.id in state.ADAPTERS:
+        if m.id in state.ADAPTERS and m.id not in state.MODEL_STATUS:
             state.MODEL_STATUS[m.id] = {"state": "idle", "detail": ""}
     state.SELECTED["model"] = model_choices()[0][1]

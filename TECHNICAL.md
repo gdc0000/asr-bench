@@ -102,7 +102,7 @@ Funzioni:
 - `preload(model_id, lang)` (semplice, zero quota): seleziona il modello scope-loaded, oppure errore scope.
 - `unload_model(lang)`: deseleziona (i pesi scope restano condivisi). Sidebar + bottone aggiornati.
 - `_preload_all()`: scope-load a boot di tutti gli adapter (`.to("cuda")` a module-scope = pack ZeroGPU). Errori isolati per modello in `LOAD_ERROR`.
-- `run_transcribe(model_id, audio, sr)` (decorato `@spaces.GPU(duration=45)`): lookup del globale scope-loaded nel worker, ritorna `str`. Mai modelli negli arg/return (i tensori CUDA non attraversano il fork).
+- `run_transcribe(model_id, audio, sr)` (decorato `@spaces.GPU(duration=30)` → ~45s richiesti): lookup del globale scope-loaded nel worker, ritorna `str`. Mai modelli negli arg/return (i tensori CUDA non attraversano il fork).
 - `live_toggle(model_id, gt, st, lang)`: un bottone per ON e OFF + `st` in output (11). ON: rifiuta se modello non pronto, altrimenti apre trial (`t_on`, snapshot GT, lock GT+dropdown). Nativo solo locale (`SPACES_ZERO_GPU != "1"`); su Space sempre re-tx. OFF: scarta se <1s, altrimenti trascrizione finale + WER/CER + riga `SESSION` + file + card/KPI + unlock.
 - `live_transcribe(model_id, chunk, st, lang)` (generatore): inattivo -> messaggio idle. Attivo: accumula buffer (finestra 30s), VAD per `t_speech`. Se trial nativo (solo locale, Nemotron): feed ogni 0.3s di audio nuovo via `nemotron_feed`, parziali committed, niente ritrascrizione. Altrimenti ritrascrive ogni 2s di audio nuovo. Traccia `t_first`, `infer_s`, `revs` in entrambi i casi.
 - `nemotron_feed(adapter, raw)` / `nemotron_finish(adapter)` (decorati `@spaces.GPU(duration=45)`, solo locali: su Space alzano subito e scatta il fallback re-tx).

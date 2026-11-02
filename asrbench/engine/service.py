@@ -45,7 +45,10 @@ def _preload_all(lang: str = "it"):
 
     Chiamata una volta da app.py a boot. Su ZeroGPU questo .to("cuda") fa il
     pack su disco: zero quota, VRAM allocata solo per worker a richiesta.
+    Idempotente: se i modelli ci sono già (hot-reload), non ricarica.
     """
+    if MODELS_LIVE:
+        return
     for mid, cls in state.ADAPTERS.items():
         start = time.perf_counter()
         try:
@@ -76,9 +79,13 @@ def gated_hint(model_id: str, exc: Exception, lang: str = "it") -> str:
     return str(exc)[:120]
 
 
-@spaces.GPU(duration=45)
+@spaces.GPU(duration=30)
 def run_transcribe(model_id: str, audio, sr: int = 16000):
-    """Trascrizione batch su modello scope-loaded. Solo tipi picklabili in/out."""
+    """Trascrizione batch su modello scope-loaded. Solo tipi picklabili in/out.
+
+    Stima: streaming pesi cold worker + inferenza <20s. Quota: check su richiesto
+    (30 -> ~45 richiesti). Alzare se compaiono troncamenti a modelli grossi.
+    """
     adapter = MODELS_LIVE[model_id]
     return adapter.transcribe(np.asarray(audio, dtype=np.float32), sr)
 
@@ -139,3 +146,6 @@ def unload_model(lang: str = "it"):
     state.CURRENT["adapter"] = None
     state.CURRENT["id"] = None
     return T(lang, "unloaded", m=short(mid)), status_html(lang), log_tail(60), live_btn_state(lang)
+
+
+_preload_all()  # self-heal: ricarica dopo hot-reload (no-op se già live)
