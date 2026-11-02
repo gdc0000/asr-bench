@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import gradio as gr
 
-from asrbench import state
-from asrbench.helpers import default_detail, model_choices, short, sname
-from asrbench.i18n import T
-from asrbench.logbuffer import tail as log_tail
-from asrbench.registry import MODELS
+from asrbench.core import state
+from asrbench.core.logbuffer import tail as log_tail
+from asrbench.core.registry import MODELS
+from asrbench.engine.helpers import default_detail, model_choices, short, sname
+from asrbench.ui.i18n import T
 
 STATE_LABEL = {"ready": "st_ready", "loading": "st_loading",
                "idle": "st_idle", "error": "st_error"}

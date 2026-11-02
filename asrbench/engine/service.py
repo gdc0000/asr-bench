@@ -5,11 +5,11 @@ import time
 
 import gradio as gr
 
-from asrbench import state
-from asrbench.helpers import short, sname
-from asrbench.i18n import T
-from asrbench.logbuffer import event, tail as log_tail
-from asrbench.status import live_btn_state, status_html
+from asrbench.core import state
+from asrbench.core.logbuffer import event, tail as log_tail
+from asrbench.engine.helpers import short, sname
+from asrbench.ui.i18n import T
+from asrbench.ui.status import live_btn_state, status_html
 
 try:
     import spaces

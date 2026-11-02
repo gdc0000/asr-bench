@@ -1,7 +1,7 @@
 """Copy IT/EN, schemi di flusso e deep-dive ingegneristici per la UI."""
 from __future__ import annotations
 
-from asrbench.registry import MODELS
+from asrbench.core.registry import MODELS
 
 
 def T(lang: str, key: str, **kw) -> str:

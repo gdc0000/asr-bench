@@ -3,15 +3,15 @@ from __future__ import annotations
 
 import gradio as gr
 
-from asrbench import state
-from asrbench.helpers import model_choices, short
-from asrbench.i18n import TABLE_HEADERS, T, flow_html, model_info
-from asrbench.logbuffer import clear as log_clear, event, path as log_path
-from asrbench.logbuffer import tail as log_tail
-from asrbench.service import preload, unload_model
-from asrbench.status import live_btn_state, side_update, status_html
-from asrbench.trials import last_card_view, live_toggle, live_transcribe, reset_session
-from asrbench.trials import table_view
+from asrbench.core import state
+from asrbench.core.logbuffer import clear as log_clear, event, path as log_path
+from asrbench.core.logbuffer import tail as log_tail
+from asrbench.engine.helpers import model_choices, short
+from asrbench.engine.service import preload, unload_model
+from asrbench.engine.trials import last_card_view, live_toggle, live_transcribe, reset_session
+from asrbench.engine.trials import table_view
+from asrbench.ui.i18n import TABLE_HEADERS, T, flow_html, model_info
+from asrbench.ui.status import live_btn_state, side_update, status_html
 
 CSS = """
 #asr-sidebar { min-width: 300px; }

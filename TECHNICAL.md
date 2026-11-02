@@ -24,11 +24,11 @@ Classe con stessi metodi:
 
 ## 3. Audio, punteggi, VAD
 
-`asrbench/audio.py`:
+`asrbench/engine/audio.py`:
 
 - `to_mono_16k(audio, normalize=True) -> (wav, 16000)`: accetta `(sr, np.ndarray)` da Gradio o array puro. Media canali, cast float32, `librosa.resample` se serve, normalizza picco a 0.95 se richiesto.
 
-`asrbench/scores.py` (solo stdlib):
+`asrbench/engine/scores.py` (solo stdlib):
 
 - `norm_it(s)`: minuscole, NFKD senza accenti, apostrofi a spazi, solo `a-z0-9`.
 - `wer(ref, hyp)`, `cer(ref, hyp)` (CER su stringa senza spazi): Levenshtein / len(ref). `None` se ref vuoto.
@@ -79,17 +79,13 @@ Pattern comune: `load()` = `Processor.from_pretrained` + `Model.from_pretrained(
   - `stream_finish()`: pad zero-filling dell'ultimo pezzo parziale, decode, ritorna testo. Fallback a `transcribe()` se eccezione.
 - Path app: load via `_load_new_adapter`; live via `nemotron_feed`/`nemotron_finish` (decorati `@spaces.GPU(duration=60)`); batch/OFF altri modelli via `run_transcribe`.
 
-## 5. App Gradio (`app.py` + `asrbench/ui.py`)
+## 5. App Gradio (`app.py` + `asrbench/ui/`)
 
 `app.py` è solo entry point (init + `build_demo().launch()`). Codice diviso per responsabilità:
 
-- `asrbench/state.py`: `ADAPTERS`, costanti (`DASH`, `VAD_RMS`, `NEMOTRON_ID`), stato mutabile (`CURRENT`, `SELECTED`, `MODEL_STATUS`, `TRIAL_SEQ`, `TRIAL_ACTIVE`, `SESSION`, ...). Mutazioni via `state.X`.
-- `asrbench/helpers.py`: `short`, `sname`, `chunk_is_speech`, `default_detail`, `model_choices`.
-- `asrbench/status.py`: badge, `status_html(lang)`, `live_btn_state(lang)`, `model_status_init`.
-- `asrbench/service.py`: `get_adapter`, `preload`, `unload_model`, `run_transcribe`, `nemotron_feed/finish` (+ fallback `spaces`).
-- `asrbench/trials.py`: `new_trial`, `table_view`, `last_card_view`, `write_session_files`, `reset_session`, `live_toggle`, `live_transcribe`.
-- `asrbench/ui.py`: CSS/JS, `on_select`, `set_verbose`, `ui_clear`, `set_lang`, `build_demo` (layout + wiring).
-- `asrbench/i18n.py`: stringhe IT/EN, `flow_html`, `model_info`, deep-dive.
+- `asrbench/core/`: `state.py` (`ADAPTERS`, costanti, stato mutabile: mutazioni via `state.X`), `logbuffer.py`, `registry.py`.
+- `asrbench/engine/`: `helpers.py`, `service.py` (`get_adapter`, `preload`, `unload_model`, `run_transcribe`, `nemotron_feed/finish` + fallback `spaces`), `trials.py` (`new_trial`, `table_view`, `last_card_view`, `write_session_files`, `reset_session`, `live_toggle`, `live_transcribe`), `audio.py`, `scores.py`.
+- `asrbench/ui/`: `status.py` (badge, `status_html(lang)`, `live_btn_state(lang)`, `model_status_init`), `layout.py` (CSS/JS, `on_select`, `set_verbose`, `ui_clear`, `set_lang`, `build_demo`), `i18n.py` (stringhe IT/EN, `flow_html`, `model_info`, deep-dive).
 
 Layout (dashboard, niente tab):
 

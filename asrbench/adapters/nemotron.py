@@ -5,7 +5,7 @@ import torch
 from transformers import Nemotron3_5AsrForRNNT, Nemotron3_5AsrProcessor
 
 from asrbench.adapters.base import ModelInfo
-from asrbench.registry import MODELS
+from asrbench.core.registry import MODELS
 
 LANG_TAG = re.compile(r"\s*<[A-Za-z]{2,3}(-[A-Za-z]{2})?>\s*")
 

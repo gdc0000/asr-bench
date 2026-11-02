@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from asrbench import state
-from asrbench.registry import MODELS
+from asrbench.core import state
+from asrbench.core.registry import MODELS
 
 
 def short(mid: str) -> str:

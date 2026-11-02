@@ -4,7 +4,7 @@ import torch
 from transformers import AutoModelForCTC, AutoProcessor
 
 from asrbench.adapters.base import ModelInfo
-from asrbench.registry import MODELS
+from asrbench.core.registry import MODELS
 
 
 class GraniteAdapter:

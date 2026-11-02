@@ -8,7 +8,7 @@ from safetensors.torch import load_file
 from transformers import Qwen3ASRForConditionalGeneration, Qwen3ASRProcessor, Qwen3ASRConfig
 
 from asrbench.adapters.base import ModelInfo
-from asrbench.registry import MODELS
+from asrbench.core.registry import MODELS
 
 
 class QwenAdapter:

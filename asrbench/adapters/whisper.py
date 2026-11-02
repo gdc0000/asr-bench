@@ -4,7 +4,7 @@ import torch
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
 from asrbench.adapters.base import ModelInfo
-from asrbench.registry import MODELS
+from asrbench.core.registry import MODELS
 
 
 class WhisperAdapter:

@@ -8,15 +8,15 @@ import time
 import gradio as gr
 import numpy as np
 
-from asrbench import state
-from asrbench.audio import to_mono_16k
-from asrbench.helpers import chunk_is_speech, short, sname
-from asrbench.i18n import T
-from asrbench.logbuffer import event
-from asrbench.logbuffer import tail as log_tail
-from asrbench.scores import cer, fmt, wer
-from asrbench.service import get_adapter, nemotron_feed, nemotron_finish, run_transcribe
-from asrbench.status import live_btn_state, status_html
+from asrbench.core import state
+from asrbench.core.logbuffer import event
+from asrbench.core.logbuffer import tail as log_tail
+from asrbench.engine.audio import to_mono_16k
+from asrbench.engine.helpers import chunk_is_speech, short, sname
+from asrbench.engine.scores import cer, fmt, wer
+from asrbench.engine.service import get_adapter, nemotron_feed, nemotron_finish, run_transcribe
+from asrbench.ui.i18n import T
+from asrbench.ui.status import live_btn_state, status_html
 
 
 def new_trial():

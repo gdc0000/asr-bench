@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 MAX_LINES = 500
-LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
+LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 RUN_ID = datetime.now().strftime("%Y%m%d-%H%M%S")
 LOG_FILE = LOG_DIR / f"asr-bench-{RUN_ID}.log"

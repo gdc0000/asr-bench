@@ -1,11 +1,11 @@
 """asr-bench: benchmark live di ASR italiano. Entry point sottile: init + UI."""
 from __future__ import annotations
 
-from asrbench import state
-from asrbench.logbuffer import event, path as log_path
-from asrbench.status import model_status_init
-from asrbench.trials import write_session_files
-from asrbench.ui import build_demo
+from asrbench.core import state
+from asrbench.core.logbuffer import event, path as log_path
+from asrbench.engine.trials import write_session_files
+from asrbench.ui.layout import build_demo
+from asrbench.ui.status import model_status_init
 
 model_status_init()
 write_session_files()

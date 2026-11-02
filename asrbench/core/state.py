@@ -5,7 +5,7 @@ from asrbench.adapters.granite import GraniteAdapter
 from asrbench.adapters.nemotron import NemotronAdapter
 from asrbench.adapters.qwen import QwenAdapter
 from asrbench.adapters.whisper import WhisperAdapter
-from asrbench.logbuffer import RUN_ID
+from asrbench.core.logbuffer import RUN_ID
 
 ADAPTERS = {
     "ibm-granite/granite-speech-5.0-470m-turboctc": GraniteAdapter,
