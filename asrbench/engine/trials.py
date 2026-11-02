@@ -69,8 +69,11 @@ def write_session_files():
 
 
 def reset_session(lang: str = "it"):
-    """Azzera righe e file sessione. Il contatore prove continua."""
+    """Azzera righe e file sessione, sblocca prove orfane. Il contatore continua."""
     state.SESSION.clear()
+    if state.TRIAL_ACTIVE:
+        state.TRIAL_ACTIVE = False
+        event("ui", "reset: prova orfana sbloccata (nessun trial browser attivo)")
     write_session_files()
     event("ui", "sessione azzerata da utente (contatore prove continua)")
     gr.Info(T(lang, "session_cleared"))
