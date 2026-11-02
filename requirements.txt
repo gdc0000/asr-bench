@@ -1,4 +1,5 @@
 torch
+torchaudio
 transformers>=5.16
 safetensors
 librosa>=0.11
