@@ -1,12 +1,14 @@
 ---
 title: asr-bench-it
+emoji: 🎙️
 colorFrom: orange
 colorTo: red
 sdk: gradio
-sdk_version: 5.49.1
+sdk_version: 5.50.0
 app_file: app.py
 python_version: "3.10"
 pinned: false
+short_description: Live Italian ASR bench: WER, latency, RTF.
 ---
 
 # asr-bench

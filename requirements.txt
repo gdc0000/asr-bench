@@ -1,8 +1,6 @@
-torch>=2.4
-torchaudio>=2.4
+torch
 transformers>=5.16
-gradio>=5.49,<6.0
+safetensors
 librosa>=0.11
 soundfile>=0.14
 numpy>=1.26
-spaces>=0.34
