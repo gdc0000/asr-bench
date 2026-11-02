@@ -23,9 +23,8 @@ class GraniteAdapter:
         self.processor = AutoProcessor.from_pretrained(self.model_id)
         self.model = AutoModelForCTC.from_pretrained(
             self.model_id,
-            device_map="auto",
             torch_dtype=torch.float16,
-        )
+        ).to("cuda")  # ZeroGPU: niente device_map (serve accelerate e rompe l'hijack)
         self.model.eval()
 
     def transcribe(self, audio, sr: int = 16000) -> str:
