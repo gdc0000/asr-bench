@@ -101,7 +101,7 @@ Funzioni:
 - `on_select(model_id, lang)`: aggiorna `SELECTED`, ritorna info + diagramma + sidebar + stato bottone Live.
 - `preload(model_id, lang)` (generatore): yield "caricamento" + sidebar, poi `get_adapter`, poi "pronto".
 - `unload_model(lang)`: scarica attivo, sidebar + bottone aggiornati.
-- `get_adapter(model_id, lang)`: cache-hit diretto; miss -> `_load_new_adapter` (decorato `@spaces.GPU(duration=180)`).
+- `get_adapter(model_id, lang)`: cache-hit diretto; miss -> `_load_new_adapter` (decorato `@spaces.GPU(duration=150)`; inferenze a 45: la quota ZeroGPU si confronta su richiesto, non su effettivo).
 - `run_transcribe(adapter, audio, sr)` (decorato `@spaces.GPU(duration=60)`).
 - `live_toggle(model_id, gt, st, lang)`: un bottone per ON e OFF. ON: rifiuta se modello non pronto, altrimenti apre trial (`t_on`, snapshot GT, lock GT+dropdown). OFF: scarta se <1s, altrimenti trascrizione finale + WER/CER + riga `SESSION` + file + card/KPI + unlock.
 - `live_transcribe(model_id, chunk, st, lang)` (generatore): inattivo -> messaggio idle. Attivo: accumula buffer (finestra 30s), VAD per `t_speech`. Se trial nativo (Nemotron): feed ogni 0.3s di audio nuovo via `nemotron_feed`, parziali committed, niente ritrascrizione. Altrimenti ritrascrive ogni 2s di audio nuovo. Traccia `t_first`, `infer_s`, `revs` in entrambi i casi.

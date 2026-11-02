@@ -57,29 +57,29 @@ def gated_hint(model_id: str, exc: Exception, lang: str = "it") -> str:
     return str(exc)[:120]
 
 
-@spaces.GPU(duration=180)
+@spaces.GPU(duration=150)
 def _load_new_adapter(model_id: str):
-    """Istanzia e carica l'adapter. 180s di GPU su ZeroGPU."""
+    """Istanzia e carica l'adapter. Quota ZeroGPU: check su richiesto, tenere basso."""
     adapter = state.ADAPTERS[model_id](model_id)
     adapter.load()
     return adapter
 
 
-@spaces.GPU(duration=60)
+@spaces.GPU(duration=45)
 def run_transcribe(adapter, audio, sr: int = 16000):
-    """Trascrizione batch con 60s di GPU."""
+    """Trascrizione batch. Durata = peggio misurato x1.4 (quota su richiesto)."""
     return adapter.transcribe(audio, sr)
 
 
-@spaces.GPU(duration=60)
+@spaces.GPU(duration=45)
 def nemotron_feed(adapter, raw_chunk):
-    """Un feed streaming nativo Nemotron con 60s di GPU."""
+    """Un feed streaming nativo Nemotron."""
     return adapter.stream_feed(raw_chunk)
 
 
-@spaces.GPU(duration=60)
+@spaces.GPU(duration=45)
 def nemotron_finish(adapter):
-    """Chiusura sessione streaming nativa con 60s di GPU."""
+    """Chiusura sessione streaming nativa."""
     return adapter.stream_finish()
 
 
