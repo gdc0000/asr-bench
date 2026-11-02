@@ -11,7 +11,7 @@ Oggetti, metodi, flusso dati. Prova live singola + tabella sessione.
 
 ## 2. Adapter: interfaccia comune
 
-7 file in `asrbench/adapters/`, ma `ADAPTERS` in `app.py` ne registra 4: granite, qwen, whisper, nemotron. Voxtral/moonshine/vibevoice presenti ma esclusi.
+4 file in `asrbench/adapters/`, tutti registrati in `ADAPTERS` (`app.py`): granite, qwen, whisper, nemotron.
 
 Classe con stessi metodi:
 
@@ -27,7 +27,6 @@ Classe con stessi metodi:
 `asrbench/audio.py`:
 
 - `to_mono_16k(audio, normalize=True) -> (wav, 16000)`: accetta `(sr, np.ndarray)` da Gradio o array puro. Media canali, cast float32, `librosa.resample` se serve, normalizza picco a 0.95 se richiesto.
-- `duration(wav, sr) -> float`: `len / sr`.
 
 `asrbench/scores.py` (solo stdlib):
 
@@ -39,32 +38,46 @@ Classe con stessi metodi:
 
 - `chunk_is_speech(wav) -> bool`: RMS con scala auto (peak > 1.5 = int16, /32768), soglia `VAD_RMS = 0.02`.
 
-## 4. Processor per modello (i 4 attivi)
+## 4. Modelli: oggetti e metodi invocati (i 4 attivi)
+
+Pattern comune: `load()` = `Processor.from_pretrained` + `Model.from_pretrained(device_map="auto")` + `eval()`; `transcribe()` = processor -> sposta tensori su device (+fp16) -> inferenza -> `batch_decode` -> `strip`/`clean`.
 
 ### Granite `granite.py`
 
-- Oggetti: `AutoProcessor`, `AutoModelForCTC`.
-- Forward: `model(**inputs).logits` shape `[1, T, vocab]`. Decode CTC: `argmax` frame-wise -> `batch_decode`.
-- Nessun `generate`. Greedy frame-wise.
+- Oggetti: `AutoProcessor`, `AutoModelForCTC` (fp16).
+- `processor(audio, sampling_rate, return_tensors="pt")` -> `input_features` + `attention_mask` (spostati su device così come sono).
+- `model(**inputs).logits` shape `[1, T, vocab]`. Decode CTC: `torch.argmax(logits, dim=-1)` -> `processor.batch_decode(ids)[0]`.
+- Nessun `generate`. Solo forward greedy.
+- Path app: load via `_load_new_adapter`, inferenza via `run_transcribe`.
 
 ### Whisper `whisper.py`
 
-- Oggetti: `WhisperProcessor`, `WhisperForConditionalGeneration`.
-- `processor(audio, ...)` -> log-mel `[1, 80, 3000]`.
-- `model.generate(input_features, language="it", task="transcribe", max_new_tokens=256)` -> taglio non serve (solo feature in input).
-- `batch_decode(..., skip_special_tokens=True)[0]`.
+- Oggetti: `WhisperProcessor`, `WhisperForConditionalGeneration` (fp16).
+- `processor(audio, ...)` -> log-mel `input_features` (solo feature passate a `generate`, move esplicito a fp16).
+- `model.generate(input_features, language="it", task="transcribe", max_new_tokens=256)` -> id `[1, N]` (taglio prompt non serve).
+- `processor.batch_decode(generated, skip_special_tokens=True)[0]`.
+- Path app: load via `_load_new_adapter`, inferenza via `run_transcribe`.
 
 ### Qwen3-ASR `qwen.py`
 
-- Checkpoint con chiavi `thinker.*`. `load()` ricostruisce config da `thinker_config`, rimappa stato: `thinker.audio_tower.*` -> `model.audio_tower.*`, `thinker.model.*` -> `model.language_model.*`, `proj1/proj2` -> `multi_modal_projector.linear_1/2`, `thinker.lm_head` -> `lm_head`.
-- Prompt obbligatorio: `apply_chat_template(...)` + suffisso `"language Italian<asr_text>"`.
-- `generate(..., max_new_tokens=256)` -> taglio prompt `generated[:, input_ids.shape[1]:]` -> `batch_decode`.
+- Oggetti: `Qwen3ASRProcessor`, `Qwen3ASRForConditionalGeneration`, `Qwen3ASRConfig` (fp16, `.to("cuda")` esplicito: pretende GPU).
+- `load()` ricostruisce config da `thinker_config` e rimappa lo state dict: `thinker.audio_tower.*` -> `model.audio_tower.*`, `thinker.model.*` -> `model.language_model.*`, `proj1/proj2` -> `multi_modal_projector.linear_1/2`, `thinker.lm_head` -> `lm_head`.
+- Prompt obbligatorio: `processor.apply_chat_template(msgs, add_generation_prompt=True, tokenize=False)` + suffisso `"language Italian<asr_text>"`.
+- `processor(text=text_prompt, audio=audio, sampling_rate, return_tensors)` -> `input_ids, input_features, attention_mask` (spostati su device).
+- `model.generate(**inputs, max_new_tokens=256)` -> taglio prompt `generated[:, input_ids.shape[1]:]` -> `batch_decode(..., skip_special_tokens=True)[0]`.
+- Path app: load via `_load_new_adapter`, inferenza via `run_transcribe`.
 
 ### Nemotron `nemotron.py`
 
-- Oggetti: `Nemotron3_5AsrProcessor`, `Nemotron3_5AsrForRNNT`.
-- `model.generate(...)` -> `NemotronAsrStreamingGenerateOutput`, non tensore: `sequences = out.sequences if hasattr(out, "sequences") else out`.
-- `batch_decode(sequences, ...)[0]`. Gated su HF: serve token con accesso approvato.
+- Oggetti: `Nemotron3_5AsrProcessor`, `Nemotron3_5AsrForRNNT` (fp16, `device_map="auto"`), `Nemotron3_5AsrRNNTDecoderCache(config)`.
+- `processor(audio, sampling_rate, return_tensors="pt")` -> mel time-major `input_features [B, T, 128]` + `attention_mask` + `num_lookahead_tokens (=3)` + `prompt_ids` (tensori spostati su device, float in fp16).
+- Batch: `model.generate(**inputs, max_new_tokens=256)` -> `NemotronAsrStreamingGenerateOutput` (non tensore: `sequences = out.sequences if hasattr(out, "sequences") else out`).
+- `processor.batch_decode(sequences, skip_special_tokens=True)[0]` + `clean_text` (regex via eco prompt `<xx>`).
+- **Streaming nativo** via `NemotronStreamSession`:
+  - `stream_start()`: reset mel consumate, cache `None`, decoder cache fresca, `last = blank`.
+  - `stream_feed(raw_np)`: append raw, mel dal buffer intero, pezzi 25 poi 32 (`fed_mel` avanza solo a pezzo completo), per pezzo `model.get_audio_features(input_features, past_key_values, padding_cache, num_lookahead_tokens=3, prompt_ids[solo primo], use_cache=True)` -> `pooler_output [B, Te, 640]`; loop greedy per frame: `decoder(last, cache)` -> `joint(dec [1,1,1,H], enc [1,1,1,H])` -> `argmax` -> emit se != blank (max 10 simboli/frame), `last` = token emesso **blank inclusi**; ritorna `batch_decode(emitted)`.
+  - `stream_finish()`: pad zero-filling dell'ultimo pezzo parziale, decode, ritorna testo. Fallback a `transcribe()` se eccezione.
+- Path app: load via `_load_new_adapter`; live via `nemotron_feed`/`nemotron_finish` (decorati `@spaces.GPU(duration=60)`); batch/OFF altri modelli via `run_transcribe`.
 
 ## 5. App Gradio `app.py`
 
@@ -84,7 +97,9 @@ Funzioni:
 - `get_adapter(model_id)`: cache-hit diretto; miss -> `_load_new_adapter` (decorato `@spaces.GPU(duration=180)`).
 - `run_transcribe(adapter, audio, sr)` (decorato `@spaces.GPU(duration=60)`).
 - `live_toggle(model_id, gt, st)`: un bottone per ON e OFF. ON: rifiuta se modello non pronto, altrimenti apre trial (`t_on`, snapshot GT, lock GT+dropdown). OFF: scarta se <1s, altrimenti trascrizione finale + WER/CER + riga `SESSION` + file + card/KPI + unlock.
-- `live_transcribe(model_id, chunk, st)` (generatore): inattivo -> messaggio idle. Attivo: accumula buffer (finestra 30s), VAD per `t_speech`, ritrascrive ogni 2s di audio nuovo, traccia `t_first`, `infer_s`, `revs`.
+- `live_transcribe(model_id, chunk, st)` (generatore): inattivo -> messaggio idle. Attivo: accumula buffer (finestra 30s), VAD per `t_speech`. Se trial nativo (Nemotron): feed ogni 0.3s di audio nuovo via `nemotron_feed`, parziali committed, niente ritrascrizione. Altrimenti ritrascrive ogni 2s di audio nuovo. Traccia `t_first`, `infer_s`, `revs` in entrambi i casi.
+- `nemotron_feed(adapter, raw)` / `nemotron_finish(adapter)` (decorati `@spaces.GPU(duration=60)`).
+- `TRIAL_ACTIVE` globale: `preload`/`unload_model` rifiutano con warning a prova aperta.
 - `table_view()`, `last_card_view()`, `reset_session()`, `write_session_files()` (CSV+JSONL per run in `logs/`).
 
 ## 6. Trial e metriche
@@ -97,7 +112,7 @@ Dict trial: `active, n, mid, gt, samples, last_len, last_text, last_t, t_on, t_f
 
 ## 7. ZeroGPU / Space
 
-- `import spaces` con fallback no-op in locale. Solo `_load_new_adapter` e `run_transcribe` decorati; resto su CPU.
+- `import spaces` con fallback no-op in locale. Decorati: `_load_new_adapter` (180s), `run_transcribe` (60s), `nemotron_feed`/`nemotron_finish` (60s). Resto su CPU.
 - `demo.launch()` senza host/porta (bind 0.0.0.0:7860 automatico).
 - `gated_hint()`: 401/403/gated/token -> "serve HF_TOKEN con accesso approvato al repo".
 - Frontmatter Space in `README.md`. `.gitignore`: `logs/`, cache, check script.

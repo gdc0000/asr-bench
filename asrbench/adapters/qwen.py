@@ -12,7 +12,10 @@ from asrbench.registry import MODELS
 
 
 class QwenAdapter:
+    """LLM audio: checkpoint thinker.* rimappato, prompt con lingua fissata a italiano."""
+
     def __init__(self, model_id: str = "Qwen/Qwen3-ASR-0.6B"):
+        """Lega la scheda registry, pesi ancora vuoti."""
         info = next(m for m in MODELS if m.id == model_id)
         self.info = info
         self.model_id = model_id
@@ -20,6 +23,7 @@ class QwenAdapter:
         self.model = None
 
     def load(self) -> None:
+        """Ricostruisce config da thinker_config, rimappa pesi, sposta su CUDA fp16."""
         self.processor = Qwen3ASRProcessor.from_pretrained(self.model_id)
         import json
         from huggingface_hub import hf_hub_download
@@ -58,6 +62,7 @@ class QwenAdapter:
         self.model.eval()
 
     def transcribe(self, audio, sr: int = 16000) -> str:
+        """Prompt chat + audio -> generate -> taglia il prompt -> decode."""
         if self.model is None:
             self.load()
         msgs = [
@@ -79,6 +84,7 @@ class QwenAdapter:
         return text.strip()
 
     def unload(self) -> None:
+        """Rilascia pesi e libera VRAM."""
         self.model = None
         self.processor = None
         torch.cuda.empty_cache()

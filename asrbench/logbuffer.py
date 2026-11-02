@@ -24,6 +24,7 @@ _fh = open(LOG_FILE, "a", encoding="utf-8")
 
 
 def _write(tag: str, msg: str) -> str:
+    """Riga timestampata in ring buffer, file e stdout. Thread-safe."""
     ts = time.strftime("%H:%M:%S") + f".{int((time.time() % 1) * 1000):03d}"
     line = f"{ts} [{tag}] {msg}"
     with _lock:
@@ -48,22 +49,26 @@ def log(msg: str) -> str:
 
 
 def event(tag: str, msg: str) -> str:
+    """Registra un evento con tag (sys, ui, load, live)."""
     return _write(tag, msg)
 
 
 def tail(n: int = 60) -> str:
+    """Ultime n righe del buffer per il pannello UI."""
     with _lock:
         lines = list(_lines)[-n:]
     return "\n".join(lines)
 
 
 def clear() -> str:
+    """Svuota il buffer in memoria. Il file resta."""
     with _lock:
         _lines.clear()
     return ""
 
 
 def path() -> str:
+    """Percorso del log di questa run."""
     return str(LOG_FILE)
 
 

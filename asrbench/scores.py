@@ -6,6 +6,7 @@ import unicodedata
 
 
 def norm_it(s: str) -> str:
+    """Minuscole, via accenti, apostrofi a spazi, solo a-z0-9."""
     s = (s or "").lower()
     s = unicodedata.normalize("NFKD", s)
     s = s.encode("ascii", "ignore").decode("ascii")
@@ -15,6 +16,7 @@ def norm_it(s: str) -> str:
 
 
 def _edit(a: list, b: list) -> int:
+    """Distanza Levenshtein, una sola riga di memoria."""
     prev = list(range(len(b) + 1))
     for i, x in enumerate(a, 1):
         cur = [i] + [0] * len(b)
@@ -25,6 +27,7 @@ def _edit(a: list, b: list) -> int:
 
 
 def wer(ref: str, hyp: str) -> float | None:
+    """Word Error Rate su testo normalizzato. None se riferimento vuoto."""
     r, h = norm_it(ref).split(), norm_it(hyp).split()
     if not r:
         return None
@@ -32,6 +35,7 @@ def wer(ref: str, hyp: str) -> float | None:
 
 
 def cer(ref: str, hyp: str) -> float | None:
+    """Character Error Rate, spazi esclusi. None se riferimento vuoto."""
     r, h = norm_it(ref).replace(" ", ""), norm_it(hyp).replace(" ", "")
     if not r:
         return None
@@ -39,4 +43,5 @@ def cer(ref: str, hyp: str) -> float | None:
 
 
 def fmt(v: float | None) -> str:
+    """Percentuale a una cifra, o trattino se None."""
     return f"{v * 100:.1f}%" if v is not None else "—"

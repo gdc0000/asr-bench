@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
-
 import librosa
 import numpy as np
-import soundfile as sf
 
 
 def to_mono_16k(audio: tuple[int, np.ndarray] | np.ndarray, source_sr: int | None = None, normalize: bool = True) -> tuple[np.ndarray, int]:
+    """Mono 16k float32 da chunk Gradio o array. Opzionale normalizza picco a 0.95."""
     if isinstance(audio, tuple):
         sr, data = audio
     else:
@@ -27,15 +24,3 @@ def to_mono_16k(audio: tuple[int, np.ndarray] | np.ndarray, source_sr: int | Non
         if peak > 0:
             data = data / peak * 0.95
     return data, 16000
-
-
-def save_wav(audio: np.ndarray, sr: int = 16000) -> str:
-    fd, path = tempfile.mkstemp(suffix=".wav")
-    import os
-    os.close(fd)
-    sf.write(path, audio, sr)
-    return path
-
-
-def duration(audio: np.ndarray, sr: int = 16000) -> float:
-    return float(len(audio) / sr)

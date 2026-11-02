@@ -8,7 +8,10 @@ from asrbench.registry import MODELS
 
 
 class GraniteAdapter:
+    """CTC greedy frame-wise: forward + argmax, nessun generate."""
+
     def __init__(self, model_id: str = "ibm-granite/granite-speech-5.0-470m-turboctc"):
+        """Lega la scheda registry, pesi ancora vuoti."""
         info = next(m for m in MODELS if m.id == model_id)
         self.info = info
         self.model_id = model_id
@@ -16,6 +19,7 @@ class GraniteAdapter:
         self.model = None
 
     def load(self) -> None:
+        """Carica AutoProcessor + AutoModelForCTC in fp16, eval."""
         self.processor = AutoProcessor.from_pretrained(self.model_id)
         self.model = AutoModelForCTC.from_pretrained(
             self.model_id,
@@ -25,6 +29,7 @@ class GraniteAdapter:
         self.model.eval()
 
     def transcribe(self, audio, sr: int = 16000) -> str:
+        """Logit CTC -> argmax per frame -> batch_decode."""
         if self.model is None:
             self.load()
         inputs = self.processor(audio, sampling_rate=sr, return_tensors="pt")
@@ -36,6 +41,7 @@ class GraniteAdapter:
         return text.strip()
 
     def unload(self) -> None:
+        """Rilascia pesi e libera VRAM."""
         self.model = None
         self.processor = None
         torch.cuda.empty_cache()
