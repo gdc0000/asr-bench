@@ -1,7 +1,7 @@
 ---
 title: asr-bench-it
 emoji: 🎙️
-colorFrom: orange
+colorFrom: yellow
 colorTo: red
 sdk: gradio
 sdk_version: 5.50.0
