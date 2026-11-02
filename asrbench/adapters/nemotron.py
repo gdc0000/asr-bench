@@ -186,11 +186,14 @@ class NemotronAdapter:
         return clean_text(text)
 
     def unload(self) -> None:
-        """Rilascia pesi e sessione, libera VRAM."""
+        """Rilascia riferimenti e sessione. I pesi scope restano (condivisi)."""
         self.model = None
         self.processor = None
         self._sess = None
-        torch.cuda.empty_cache()
+        try:
+            torch.cuda.empty_cache()
+        except Exception:
+            pass  # main in emulation o contesto senza CUDA: niente da liberare
 
     def stream_start(self) -> None:
         """Apre una sessione streaming nativa."""

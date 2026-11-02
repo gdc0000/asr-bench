@@ -84,7 +84,7 @@ Pattern comune: `load()` = `Processor.from_pretrained` + `Model.from_pretrained(
 `app.py` è solo entry point (init + `build_demo().launch()`). Codice diviso per responsabilità:
 
 - `asrbench/core/`: `state.py` (`ADAPTERS`, costanti, stato mutabile: mutazioni via `state.X`), `logbuffer.py`, `registry.py`.
-- `asrbench/engine/`: `helpers.py`, `service.py` (`get_adapter`, `preload`, `unload_model`, `run_transcribe`, `nemotron_feed/finish` + fallback `spaces`), `trials.py` (`new_trial`, `table_view`, `last_card_view`, `write_session_files`, `reset_session`, `live_toggle`, `live_transcribe`), `audio.py`, `scores.py`.
+- `asrbench/engine/`: `helpers.py`, `service.py` (scope-load a boot in `MODELS_LIVE` via `_preload_all()`; `get_adapter` lookup zero-quota; `preload` seleziona; `unload_model` deseleziona; `run_transcribe(model_id, audio, sr)` GPU con solo tipi picklabili; `nemotron_feed/finish` solo locali), `trials.py` (`new_trial`, `table_view`, `last_card_view`, `write_session_files`, `reset_session`, `live_toggle` + `st` in output, `live_transcribe`; nativo solo se `SPACES_ZERO_GPU != "1"`), `audio.py`, `scores.py`.
 - `asrbench/ui/`: `status.py` (badge, `status_html(lang)`, `live_btn_state(lang)`, `model_status_init`), `layout.py` (CSS/JS, `on_select`, `set_verbose`, `ui_clear`, `set_lang`, `build_demo`), `i18n.py` (stringhe IT/EN, `flow_html`, `model_info`, deep-dive).
 
 Layout (dashboard, niente tab):
@@ -99,13 +99,13 @@ Layout (dashboard, niente tab):
 Funzioni:
 
 - `on_select(model_id, lang)`: aggiorna `SELECTED`, ritorna info + diagramma + sidebar + stato bottone Live.
-- `preload(model_id, lang)` (generatore): yield "caricamento" + sidebar, poi `get_adapter`, poi "pronto".
-- `unload_model(lang)`: scarica attivo, sidebar + bottone aggiornati.
-- `get_adapter(model_id, lang)`: cache-hit diretto; miss -> `_load_new_adapter` (decorato `@spaces.GPU(duration=150)`; inferenze a 45: la quota ZeroGPU si confronta su richiesto, non su effettivo).
-- `run_transcribe(adapter, audio, sr)` (decorato `@spaces.GPU(duration=60)`).
-- `live_toggle(model_id, gt, st, lang)`: un bottone per ON e OFF. ON: rifiuta se modello non pronto, altrimenti apre trial (`t_on`, snapshot GT, lock GT+dropdown). OFF: scarta se <1s, altrimenti trascrizione finale + WER/CER + riga `SESSION` + file + card/KPI + unlock.
-- `live_transcribe(model_id, chunk, st, lang)` (generatore): inattivo -> messaggio idle. Attivo: accumula buffer (finestra 30s), VAD per `t_speech`. Se trial nativo (Nemotron): feed ogni 0.3s di audio nuovo via `nemotron_feed`, parziali committed, niente ritrascrizione. Altrimenti ritrascrive ogni 2s di audio nuovo. Traccia `t_first`, `infer_s`, `revs` in entrambi i casi.
-- `nemotron_feed(adapter, raw)` / `nemotron_finish(adapter)` (decorati `@spaces.GPU(duration=60)`).
+- `preload(model_id, lang)` (semplice, zero quota): seleziona il modello scope-loaded, oppure errore scope.
+- `unload_model(lang)`: deseleziona (i pesi scope restano condivisi). Sidebar + bottone aggiornati.
+- `_preload_all()`: scope-load a boot di tutti gli adapter (`.to("cuda")` a module-scope = pack ZeroGPU). Errori isolati per modello in `LOAD_ERROR`.
+- `run_transcribe(model_id, audio, sr)` (decorato `@spaces.GPU(duration=45)`): lookup del globale scope-loaded nel worker, ritorna `str`. Mai modelli negli arg/return (i tensori CUDA non attraversano il fork).
+- `live_toggle(model_id, gt, st, lang)`: un bottone per ON e OFF + `st` in output (11). ON: rifiuta se modello non pronto, altrimenti apre trial (`t_on`, snapshot GT, lock GT+dropdown). Nativo solo locale (`SPACES_ZERO_GPU != "1"`); su Space sempre re-tx. OFF: scarta se <1s, altrimenti trascrizione finale + WER/CER + riga `SESSION` + file + card/KPI + unlock.
+- `live_transcribe(model_id, chunk, st, lang)` (generatore): inattivo -> messaggio idle. Attivo: accumula buffer (finestra 30s), VAD per `t_speech`. Se trial nativo (solo locale, Nemotron): feed ogni 0.3s di audio nuovo via `nemotron_feed`, parziali committed, niente ritrascrizione. Altrimenti ritrascrive ogni 2s di audio nuovo. Traccia `t_first`, `infer_s`, `revs` in entrambi i casi.
+- `nemotron_feed(adapter, raw)` / `nemotron_finish(adapter)` (decorati `@spaces.GPU(duration=45)`, solo locali: su Space alzano subito e scatta il fallback re-tx).
 - `TRIAL_ACTIVE` in `state`: `preload`/`unload_model` rifiutano con warning a prova aperta.
 - `set_lang(lang)`: flip IT<->EN, 33 update UI. `lang_state` in ogni callback che emette testo.
 - `table_view()`, `last_card_view(lang)`, `reset_session(lang)`, `write_session_files()` (CSV+JSONL per run in `logs/`).

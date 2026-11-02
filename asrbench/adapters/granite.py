@@ -40,7 +40,10 @@ class GraniteAdapter:
         return text.strip()
 
     def unload(self) -> None:
-        """Rilascia pesi e libera VRAM."""
+        """Rilascia riferimenti. I pesi scope restano (condivisi tra main e worker)."""
         self.model = None
         self.processor = None
-        torch.cuda.empty_cache()
+        try:
+            torch.cuda.empty_cache()
+        except Exception:
+            pass  # main in emulation o contesto senza CUDA: niente da liberare

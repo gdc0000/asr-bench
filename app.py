@@ -5,11 +5,13 @@ import spaces  # noqa: F401  DEVE precedere torch/transformers: patch ZeroGPU di
 
 from asrbench.core import state
 from asrbench.core.logbuffer import event, path as log_path
+from asrbench.engine.service import _preload_all
 from asrbench.engine.trials import write_session_files
 from asrbench.ui.layout import build_demo
 from asrbench.ui.status import model_status_init
 
 model_status_init()
+_preload_all()  # scope-load: .to("cuda") a module-scope (pack ZeroGPU, zero quota)
 write_session_files()
 event("sys", f"app init modelli={len([m for m in state.MODEL_STATUS])} log={log_path()}")
 

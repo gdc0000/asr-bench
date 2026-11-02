@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import time
 
 import gradio as gr
@@ -89,14 +90,15 @@ def live_toggle(model_id: str, gt: str, st, lang: str = "it"):
             return (gr.update(), gr.update(), gr.update(),
                     st["last_text"] or state.DASH,
                     T(lang, "activate_first", m=sname(model_id)),
-                    table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH)
+                    table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH, st)
         state.TRIAL_SEQ += 1
         st.update(new_trial())
         st.update({"active": True, "n": state.TRIAL_SEQ, "mid": model_id,
                    "gt": (gt or "").strip(), "t_on": time.perf_counter(),
                    "native": False})
-        native = (model_id == state.NEMOTRON_ID)
-        if native:
+        native = (model_id == state.NEMOTRON_ID
+                  and os.environ.get("SPACES_ZERO_GPU") != "1")
+        if native:  # nativo solo locale: su Space la sessione non attraversa i worker
             try:
                 state.CURRENT["adapter"].stream_start()
                 st["native"] = True
@@ -112,7 +114,7 @@ def live_toggle(model_id: str, gt: str, st, lang: str = "it"):
                 gr.update(interactive=False),
                 T(lang, "listening"),
                 T(lang, "trial_on", n=state.TRIAL_SEQ, m=sname(model_id), tag=tag),
-                table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH)
+                table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH, st)
     # chiusura prova
     audio_s = len(st["samples"]) / 16000
     st["active"] = False
@@ -125,7 +127,7 @@ def live_toggle(model_id: str, gt: str, st, lang: str = "it"):
                T(lang, "too_short", n=st["n"], a=f"{audio_s:.1f}"),
                table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH)
         st.update(new_trial())
-        return out
+        return out + (st,)
     if st.get("native"):
         try:
             adapter = get_adapter(st["mid"], lang)
@@ -134,7 +136,7 @@ def live_toggle(model_id: str, gt: str, st, lang: str = "it"):
             gr.Warning(T(lang, "model_error", e=exc))
             return (live_btn_state(lang), gr.update(interactive=True), gr.update(interactive=True),
                     st["last_text"] or state.DASH, T(lang, "model_error", e=exc),
-                    table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH)
+                    table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH, st)
         t0 = time.perf_counter()
         try:
             text = nemotron_finish(adapter)
@@ -143,7 +145,7 @@ def live_toggle(model_id: str, gt: str, st, lang: str = "it"):
             gr.Warning(T(lang, "model_error", e=exc))
             return (live_btn_state(lang), gr.update(interactive=True), gr.update(interactive=True),
                     st["last_text"] or state.DASH, T(lang, "model_error", e=exc),
-                    table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH)
+                    table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH, st)
         st["infer_s"] += time.perf_counter() - t0
         st["last_text"] = text
     else:
@@ -154,20 +156,20 @@ def live_toggle(model_id: str, gt: str, st, lang: str = "it"):
             gr.Warning(T(lang, "model_error", e=exc))
             return (live_btn_state(lang), gr.update(interactive=True), gr.update(interactive=True),
                     st["last_text"] or state.DASH, T(lang, "model_error", e=exc),
-                    table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH)
+                    table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH, st)
         audio = np.asarray(st["samples"], dtype=np.float32)
         peak = float(np.max(np.abs(audio))) if len(audio) else 0.0
         if peak > 0:
             audio = audio / peak * 0.95
         t0 = time.perf_counter()
         try:
-            text = run_transcribe(adapter, audio, 16000)
+            text = run_transcribe(st["mid"], audio, 16000)
         except Exception as exc:
             event("ui", f"prova#{st['n']} ERRORE trascrizione finale: {exc}")
             gr.Warning(T(lang, "model_error", e=exc))
             return (live_btn_state(lang), gr.update(interactive=True), gr.update(interactive=True),
                     st["last_text"] or state.DASH, T(lang, "model_error", e=exc),
-                    table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH)
+                    table_view(), last_card_view(lang), state.DASH, state.DASH, state.DASH, st)
         st["infer_s"] += time.perf_counter() - t0
         st["last_text"] = text
     rtf = st["infer_s"] / audio_s if audio_s else 0.0
@@ -192,7 +194,7 @@ def live_toggle(model_id: str, gt: str, st, lang: str = "it"):
     return (live_btn_state(lang), gr.update(interactive=True), gr.update(interactive=True),
             text,
             T(lang, "closed", n=n, w=fmt(w), c=fmt(c), r=f"{rtf:.2f}"),
-            table_view(), last_card_view(lang), lat_txt, f"{rtf:.2f}", fmt(w))
+            table_view(), last_card_view(lang), lat_txt, f"{rtf:.2f}", fmt(w), st)
 
 
 def live_transcribe(model_id: str, chunk, st, lang: str = "it"):
@@ -287,7 +289,7 @@ def live_transcribe(model_id: str, chunk, st, lang: str = "it"):
         st["last_t"] = time.perf_counter()
         try:
             t0 = time.perf_counter()
-            text = run_transcribe(adapter, audio, 16000)
+            text = run_transcribe(st["mid"], audio, 16000)
             st["infer_s"] += time.perf_counter() - t0
             if text.strip() and st["t_first"] is None:
                 st["t_first"] = time.perf_counter()

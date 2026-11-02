@@ -236,7 +236,7 @@ def build_demo():
                           outputs=[attiva_status, side_models, side_log, live_btn])
         live_btn.click(live_toggle, inputs=[model_id, gt_box, trial_state, lang_state],
                        outputs=[live_btn, gt_box, model_id, live_text, live_status,
-                                session_table, last_card, lat_kpi, rtf_kpi, wer_kpi])
+                                session_table, last_card, lat_kpi, rtf_kpi, wer_kpi, trial_state])
         live_audio.stream(live_transcribe, inputs=[model_id, live_audio, trial_state, lang_state],
                           outputs=[trial_state, live_text, live_status],
                           stream_every=1.0, time_limit=300)
