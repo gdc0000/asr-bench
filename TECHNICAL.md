@@ -79,11 +79,22 @@ Pattern comune: `load()` = `Processor.from_pretrained` + `Model.from_pretrained(
   - `stream_finish()`: pad zero-filling dell'ultimo pezzo parziale, decode, ritorna testo. Fallback a `transcribe()` se eccezione.
 - Path app: load via `_load_new_adapter`; live via `nemotron_feed`/`nemotron_finish` (decorati `@spaces.GPU(duration=60)`); batch/OFF altri modelli via `run_transcribe`.
 
-## 5. App Gradio `app.py`
+## 5. App Gradio (`app.py` + `asrbench/ui.py`)
+
+`app.py` è solo entry point (init + `build_demo().launch()`). Codice diviso per responsabilità:
+
+- `asrbench/state.py`: `ADAPTERS`, costanti (`DASH`, `VAD_RMS`, `NEMOTRON_ID`), stato mutabile (`CURRENT`, `SELECTED`, `MODEL_STATUS`, `TRIAL_SEQ`, `TRIAL_ACTIVE`, `SESSION`, ...). Mutazioni via `state.X`.
+- `asrbench/helpers.py`: `short`, `sname`, `chunk_is_speech`, `default_detail`, `model_choices`.
+- `asrbench/status.py`: badge, `status_html(lang)`, `live_btn_state(lang)`, `model_status_init`.
+- `asrbench/service.py`: `get_adapter`, `preload`, `unload_model`, `run_transcribe`, `nemotron_feed/finish` (+ fallback `spaces`).
+- `asrbench/trials.py`: `new_trial`, `table_view`, `last_card_view`, `write_session_files`, `reset_session`, `live_toggle`, `live_transcribe`.
+- `asrbench/ui.py`: CSS/JS, `on_select`, `set_verbose`, `ui_clear`, `set_lang`, `build_demo` (layout + wiring).
+- `asrbench/i18n.py`: stringhe IT/EN, `flow_html`, `model_info`, deep-dive.
 
 Layout (dashboard, niente tab):
 
-- Header: titolo + bottone `Pannello` (js-only, clicca il toggle nativo della Sidebar).
+- Header: titolo + bottone lingua `EN/IT` + bottone `Pannello` (js-only, clicca il toggle nativo della Sidebar).
+- Guida: riga fissa in 3 passi (cosa sta facendo l'utente).
 - `gr.Sidebar` destra (`asr-sidebar`): tabella 3 colonne (Modello corto, Stato+sub, Uso), log auto 2s, verbose, bottoni.
 - Riga setup: GT + dropdown + Attiva/Scarica + status | accordion dettagli + KPI (Lat, RTF, WER).
 - Riga prova: mic streaming + Live ON/OFF | trascrizione + stato.
@@ -91,16 +102,17 @@ Layout (dashboard, niente tab):
 
 Funzioni:
 
-- `on_select(model_id)`: aggiorna `SELECTED`, ritorna info + sidebar + stato bottone Live.
-- `preload(model_id)` (generatore): yield "caricamento" + sidebar, poi `get_adapter`, poi "pronto".
-- `unload_model()`: scarica attivo, sidebar + bottone aggiornati.
-- `get_adapter(model_id)`: cache-hit diretto; miss -> `_load_new_adapter` (decorato `@spaces.GPU(duration=180)`).
+- `on_select(model_id, lang)`: aggiorna `SELECTED`, ritorna info + diagramma + sidebar + stato bottone Live.
+- `preload(model_id, lang)` (generatore): yield "caricamento" + sidebar, poi `get_adapter`, poi "pronto".
+- `unload_model(lang)`: scarica attivo, sidebar + bottone aggiornati.
+- `get_adapter(model_id, lang)`: cache-hit diretto; miss -> `_load_new_adapter` (decorato `@spaces.GPU(duration=180)`).
 - `run_transcribe(adapter, audio, sr)` (decorato `@spaces.GPU(duration=60)`).
-- `live_toggle(model_id, gt, st)`: un bottone per ON e OFF. ON: rifiuta se modello non pronto, altrimenti apre trial (`t_on`, snapshot GT, lock GT+dropdown). OFF: scarta se <1s, altrimenti trascrizione finale + WER/CER + riga `SESSION` + file + card/KPI + unlock.
-- `live_transcribe(model_id, chunk, st)` (generatore): inattivo -> messaggio idle. Attivo: accumula buffer (finestra 30s), VAD per `t_speech`. Se trial nativo (Nemotron): feed ogni 0.3s di audio nuovo via `nemotron_feed`, parziali committed, niente ritrascrizione. Altrimenti ritrascrive ogni 2s di audio nuovo. Traccia `t_first`, `infer_s`, `revs` in entrambi i casi.
+- `live_toggle(model_id, gt, st, lang)`: un bottone per ON e OFF. ON: rifiuta se modello non pronto, altrimenti apre trial (`t_on`, snapshot GT, lock GT+dropdown). OFF: scarta se <1s, altrimenti trascrizione finale + WER/CER + riga `SESSION` + file + card/KPI + unlock.
+- `live_transcribe(model_id, chunk, st, lang)` (generatore): inattivo -> messaggio idle. Attivo: accumula buffer (finestra 30s), VAD per `t_speech`. Se trial nativo (Nemotron): feed ogni 0.3s di audio nuovo via `nemotron_feed`, parziali committed, niente ritrascrizione. Altrimenti ritrascrive ogni 2s di audio nuovo. Traccia `t_first`, `infer_s`, `revs` in entrambi i casi.
 - `nemotron_feed(adapter, raw)` / `nemotron_finish(adapter)` (decorati `@spaces.GPU(duration=60)`).
-- `TRIAL_ACTIVE` globale: `preload`/`unload_model` rifiutano con warning a prova aperta.
-- `table_view()`, `last_card_view()`, `reset_session()`, `write_session_files()` (CSV+JSONL per run in `logs/`).
+- `TRIAL_ACTIVE` in `state`: `preload`/`unload_model` rifiutano con warning a prova aperta.
+- `set_lang(lang)`: flip IT<->EN, 33 update UI. `lang_state` in ogni callback che emette testo.
+- `table_view()`, `last_card_view(lang)`, `reset_session(lang)`, `write_session_files()` (CSV+JSONL per run in `logs/`).
 
 ## 6. Trial e metriche
 
